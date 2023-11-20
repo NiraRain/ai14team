@@ -125,7 +125,10 @@ class MACHINE():
         return best_move, best_score
 
     def find_best_selection(self):
-        unconnected_points = [p for p in self.whole_points if p not in self.drawn_lines]
+        #현재 연결되어 있는 점들의 list
+        connected_points = set([p for l in self.drawn_lines for p in l])
+        #기존 코드에서는 아래 code의 connected_points가 self.drawn_lines였는데, unconnected_points의 값이 전체 점의 개수에서 바뀌지 않았음
+        unconnected_points = [p for p in self.whole_points if p not in connected_points]
 
         # 남은 점이 1개 또는 0개일 경우 미니맥스 알고리즘 실행
         if len(unconnected_points) <= 1:
