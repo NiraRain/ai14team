@@ -52,14 +52,6 @@ class MACHINE():
                     return False
         return True
     
-    def calculate_proximity_score(self, move):
-        # 중앙에 가까울수록 높은 점수 부여
-        mid_point = (self.board_size // 2, self.board_size // 2)
-        distance = math.sqrt((move[0][0] - mid_point[0])**2 + (move[0][1] - mid_point[1])**2) + \
-                   math.sqrt((move[1][0] - mid_point[0])**2 + (move[1][1] - mid_point[1])**2)
-        proximity_score = (self.board_size - distance) / self.board_size
-        return proximity_score
-    
     def calculate_linearity_score(self, move):
         # 선이 기존의 선과 같은 일직선상에 있으면 1점 부여
         for line in self.drawn_lines:
@@ -77,30 +69,28 @@ class MACHINE():
     def calculate_all_heuristics(self):
         user_score, machine_score = self.score
         score_difference = machine_score - user_score
-        all_points = [(x, y) for x in range(self.board_size) for y in range(self.board_size)]
+        all_points = [(x, y) for x in range(self.whole_points) for y in range(self.whole_points)]
         all_possible_moves = [list(move) for move in combinations(all_points, 2) if move not in self.drawn_lines]
 
         for move in all_possible_moves:
             if not self.check_line_intersection(move):
                 triangle_score = self.calculate_triangle_score(move) * 1.5
-                proximity_score = self.calculate_proximity_score(move) / 7
                 linearity_score = self.calculate_linearity_score(move)
                 # 점수 차이에 따른 가중치 적용
                 if score_difference > 0:
                     # 기계가 앞서고 있음: 보수적 전략
-                    total_score = (triangle_score + proximity_score + linearity_score) * 0.8
+                    total_score = (triangle_score + linearity_score) * 0.8
                 elif score_difference < 0:
                     # 사용자가 앞서고 있음: 공격적 전략
-                    total_score = (triangle_score + proximity_score + linearity_score) * 1.2
+                    total_score = (triangle_score + linearity_score) * 1.2
                 else:
                     # 점수가 동일
-                    total_score = triangle_score + proximity_score + linearity_score
-
+                    total_score = triangle_score + linearity_score
                 self.heuristic_scores[tuple(move)] = total_score
  
     def find_best_selection(self):
         # 현재 drawn_lines를 검사하여 삼각형을 만들 수 있는 선 찾기
-        for line1 in self.drawn_lines:
+        """for line1 in self.drawn_lines:
             for line2 in self.drawn_lines:
                 if line1 != line2:
                     common_point = set(line1).intersection(set(line2))
@@ -112,7 +102,7 @@ class MACHINE():
                                     if point2 != common_point:
                                         new_line = [point1, point2]
                                         if self.check_availability(new_line):
-                                            return new_line
+                                            return new_line"""
                                 
         unconnected_points = [p for p in self.whole_points if p not in set(sum(self.drawn_lines, []))]
 
