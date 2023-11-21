@@ -2,6 +2,7 @@ import random
 from itertools import combinations
 from shapely.geometry import LineString, Point, Polygon
 import math
+import pandas as pd
 
 class MACHINE():
     """
@@ -74,6 +75,8 @@ class MACHINE():
         return False
 
     def calculate_all_heuristics(self):
+        user_score, machine_score = self.score
+        score_difference = machine_score - user_score
         all_points = [(x, y) for x in range(self.board_size) for y in range(self.board_size)]
         all_possible_moves = [list(move) for move in combinations(all_points, 2) if move not in self.drawn_lines]
 
@@ -82,62 +85,77 @@ class MACHINE():
                 triangle_score = self.calculate_triangle_score(move) * 1.5
                 proximity_score = self.calculate_proximity_score(move) / 7
                 linearity_score = self.calculate_linearity_score(move)
-                total_score = triangle_score + proximity_score + linearity_score
+                # 점수 차이에 따른 가중치 적용
+                if score_difference > 0:
+                    # 기계가 앞서고 있음: 보수적 전략
+                    total_score = (triangle_score + proximity_score + linearity_score) * 0.8
+                elif score_difference < 0:
+                    # 사용자가 앞서고 있음: 공격적 전략
+                    total_score = (triangle_score + proximity_score + linearity_score) * 1.2
+                else:
+                    # 점수가 동일
+                    total_score = triangle_score + proximity_score + linearity_score
+
                 self.heuristic_scores[tuple(move)] = total_score
-
-    def get_unconnected_points(self):
-        # 연결되지 않은 점들을 찾는 함수
-        connected_points = set()
-        for line in self.drawn_lines:
-            connected_points.update(line)
-        return [p for p in self.whole_points if p not in connected_points]
-
-    def get_available_moves(self):
-        return [list([point1, point2]) for (point1, point2) in combinations(self.whole_points, 2) if self.check_availability([point1, point2])]
-
-    def minimax_with_alpha_beta(self, depth, alpha, beta, is_maximizing_player):
-        if depth == 0:
-            return None, -float('inf') if is_maximizing_player else float('inf')
-
-        best_move = None
-        if is_maximizing_player:
-            best_score = -float('inf')
-            for move in self.get_available_moves():
-                move_as_tuple = tuple(move)  # 점수 조회를 위해 튜플로 변환
-                move_score = self.heuristic_scores.get(move_as_tuple, -float('inf') if is_maximizing_player else float('inf'))
-                if move_score > best_score:
-                    best_score = move_score
-                    best_move = move
-                alpha = max(alpha, best_score)
-                if beta <= alpha:
-                    break
-        else:
-            best_score = float('inf')
-            for move in self.get_available_moves():
-                move_score = self.heuristic_scores.get(move, float('inf'))  # 변경된 부분
-                if move_score < best_score:
-                    best_score = move_score
-                    best_move = move
-                beta = min(beta, best_score)
-                if beta <= alpha:
-                    break
-
-        return best_move, best_score
-
+ 
     def find_best_selection(self):
-        unconnected_points = [p for p in self.whole_points if p not in self.drawn_lines]
+        unconnected_points = [p for p in self.whole_points if p not in set(sum(self.drawn_lines, []))]
 
-        # 남은 점이 1개 또는 0개일 경우 미니맥스 알고리즘 실행
-        if len(unconnected_points) <= 1:
-            self.calculate_all_heuristics()
-            best_move, _ = self.minimax_with_alpha_beta(5, -float('inf'), float('inf'), True)
-            if best_move:
-                best_move = list(best_move)
-            return best_move
+        if len(unconnected_points) >= 2:
+            # unconnected_points 내에서 가능한 모든 선을 찾습니다.
+            possible_lines = [[p1, p2] for p1 in unconnected_points for p2 in unconnected_points if p1 != p2]
+            valid_lines = [line for line in possible_lines if self.check_availability(line)]
+
+            if valid_lines:
+                return random.choice(valid_lines) 
+            else:
+                _, best_line = self.minmax(self.drawn_lines[:], depth=3, maximizing_player=True)
+                return best_line
         else:
-            # 그렇지 않으면 랜덤한 움직임 선택
-            can_move = [list([point1, point2]) for (point1, point2) in combinations(unconnected_points, 2) if self.check_availability2([point1, point2])]
-            return random.choice(can_move) if can_move else None
+            _, best_line = self.minmax(self.drawn_lines[:], depth=3, maximizing_player=True)
+            return best_line
+    
+    def evaluate_board(self, drawn_lines):
+        # 현재 보드 상태에서의 휴리스틱 점수를 계산
+        total_score = 0
+        for line in drawn_lines:
+            line_as_tuple = tuple(line)  # 휴리스틱 점수를 찾기 위해 튜플로 변환
+            total_score += self.heuristic_scores.get(line_as_tuple, 0)  # 점수를 가져옴, 없는 경우 0으로 처리
+        return total_score
+
+    def minmax(self, drawn_lines, depth, maximizing_player):
+        if depth == 0 or not self.get_available_moves(drawn_lines):
+            return self.evaluate_board(drawn_lines), None
+
+        if maximizing_player:
+            max_eval = float('-inf')
+            best_line = None
+
+            for move in self.get_available_moves(drawn_lines):
+                new_drawn_lines = drawn_lines + [move]  # 새로운 움직임을 추가
+                eval, _ = self.minmax(new_drawn_lines, depth - 1, False)
+                if eval > max_eval:
+                    max_eval = eval
+                    best_line = move
+
+            return max_eval, best_line
+        else:
+            min_eval = float('inf')
+            best_line = None
+
+            for move in self.get_available_moves(drawn_lines):
+                new_drawn_lines = drawn_lines + [move]  # 새로운 움직임을 추가
+                eval, _ = self.minmax(new_drawn_lines, depth - 1, True)
+                if eval < min_eval:
+                    min_eval = eval
+                    best_line = move
+
+            return min_eval, best_line
+
+    def get_available_moves(self, drawn_lines):
+        available_moves = [[point1, point2] for (point1, point2) in list(combinations(self.whole_points, 2)) 
+                       if self.check_availability([point1, point2])]
+        return available_moves
     
     def check_availability(self, line):
         line_string = LineString(line)
@@ -169,37 +187,4 @@ class MACHINE():
             return True
         else:
             return False    
-
-    def check_availability2(self, line):
-        line_string = LineString(line)
-
-        if not all(point in self.get_unconnected_points() for point in line):
-            return False
-
-        # Must be one of the whole points
-        condition1 = (line[0] in self.whole_points) and (line[1] in self.whole_points)
         
-        # Must not skip a dot
-        condition2 = True
-        for point in self.whole_points:
-            if point==line[0] or point==line[1]:
-                continue
-            else:
-                if bool(line_string.intersection(Point(point))):
-                    condition2 = False
-
-        # Must not cross another line
-        condition3 = True
-        for l in self.drawn_lines:
-            if len(list(set([line[0], line[1], l[0], l[1]]))) == 3:
-                continue
-            elif bool(line_string.intersection(LineString(l))):
-                condition3 = False
-
-        # Must be a new line
-        condition4 = (line not in self.drawn_lines)
-
-        if condition1 and condition2 and condition3 and condition4:
-            return True
-        else:
-            return False    
