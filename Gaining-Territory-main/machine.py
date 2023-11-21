@@ -76,7 +76,7 @@ class MACHINE():
             if not self.check_line_intersection(move):
                 triangle_score = self.calculate_triangle_score(move) * 1.5
                 linearity_score = self.calculate_linearity_score(move)
-                # 점수 차이에 따른 가중치 적용
+                """# 점수 차이에 따른 가중치 적용
                 if score_difference > 0:
                     # 기계가 앞서고 있음: 보수적 전략
                     total_score = (triangle_score + linearity_score) * 0.8
@@ -85,9 +85,13 @@ class MACHINE():
                     total_score = (triangle_score + linearity_score) * 1.2
                 else:
                     # 점수가 동일
-                    total_score = triangle_score + linearity_score
-                self.heuristic_scores[tuple(move)] = total_score
+                    total_score = triangle_score + linearity_score"""
+                total_score = triangle_score + linearity_score
+                self.heuristic_scores[tuple(move)] = total_score +score_difference
  
+    ####
+    # find_best_selection 점2개 이상 남기 전에, 삼각형을 만들 수 있는 상황이 있다면 
+    # 그 예외상황에서 삼각형을 우선으로 처리하도록 예외처리 
     def find_best_selection(self):
         # 현재 drawn_lines를 검사하여 삼각형을 만들 수 있는 선 찾기
         """for line1 in self.drawn_lines:
@@ -127,6 +131,8 @@ class MACHINE():
             line_as_tuple = tuple(line)  # 휴리스틱 점수를 찾기 위해 튜플로 변환
             total_score += self.heuristic_scores.get(line_as_tuple, 0)  # 점수를 가져옴, 없는 경우 0으로 처리
         return total_score
+    
+    # 말단노드까지 score 점수 갱신과 말단노드 도착 후 점수 초기화 작업?
 
     def minmax(self, drawn_lines, depth, alpha, beta, maximizing_player):
         if depth == 0 or not self.get_available_moves(drawn_lines):
@@ -171,6 +177,8 @@ class MACHINE():
                        if self.check_availability([point1, point2])]
         return available_moves
     
+    # minmax알고리즘 내부에서 사용될 score 변경 함수
+    
     def check_availability(self, line):
         line_string = LineString(line)
 
@@ -202,3 +210,41 @@ class MACHINE():
         else:
             return False    
         
+    def check_triangle(self, line):
+        self.get_score = False
+
+        point1 = line[0]
+        point2 = line[1]
+
+        point1_connected = []
+        point2_connected = []
+
+        for l in self.drawn_lines:
+            if l==line: # 자기 자신 제외
+                continue
+            if point1 in l:
+                point1_connected.append(l)
+            if point2 in l:
+                point2_connected.append(l)
+
+        if point1_connected and point2_connected: # 최소한 2점 모두 다른 선분과 연결되어 있어야 함
+            for line1, line2 in product(point1_connected, point2_connected):
+                
+                # Check if it is a triangle & Skip the triangle has occupied
+                triangle = self.organize_points(list(set(chain(*[line, line1, line2]))))
+                if len(triangle) != 3 or triangle in self.triangles:
+                    continue
+
+                empty = True
+                for point in self.whole_points:
+                    if point in triangle:
+                        continue
+                    if bool(Polygon(triangle).intersection(Point(point))):
+                        empty = False
+
+                if empty:
+                    self.triangles.append(triangle)
+                    self.score[PLAYERS.index(self.turn)]+=1
+
+                    self.occupy_triangle(triangle, color=color)
+                    self.get_score = True
