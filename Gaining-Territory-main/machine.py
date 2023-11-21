@@ -52,14 +52,6 @@ class MACHINE():
                     return False
         return True
     
-    def calculate_proximity_score(self, move):
-        # 중앙에 가까울수록 높은 점수 부여
-        mid_point = (self.board_size // 2, self.board_size // 2)
-        distance = math.sqrt((move[0][0] - mid_point[0])**2 + (move[0][1] - mid_point[1])**2) + \
-                   math.sqrt((move[1][0] - mid_point[0])**2 + (move[1][1] - mid_point[1])**2)
-        proximity_score = (self.board_size - distance) / self.board_size
-        return proximity_score
-    
     def calculate_linearity_score(self, move):
         # 선이 기존의 선과 같은 일직선상에 있으면 1점 부여
         for line in self.drawn_lines:
@@ -75,18 +67,47 @@ class MACHINE():
         return False
 
     def calculate_all_heuristics(self):
-        all_points = [(x, y) for x in range(self.board_size) for y in range(self.board_size)]
+        user_score, machine_score = self.score
+        score_difference = machine_score - user_score
+        all_points = [(x, y) for x in range(self.whole_points) for y in range(self.whole_points)]
         all_possible_moves = [list(move) for move in combinations(all_points, 2) if move not in self.drawn_lines]
 
         for move in all_possible_moves:
             if not self.check_line_intersection(move):
                 triangle_score = self.calculate_triangle_score(move) * 1.5
-                proximity_score = self.calculate_proximity_score(move) / 7
                 linearity_score = self.calculate_linearity_score(move)
-                total_score = triangle_score + proximity_score + linearity_score
-                self.heuristic_scores[tuple(move)] = total_score
+                """# 점수 차이에 따른 가중치 적용
+                if score_difference > 0:
+                    # 기계가 앞서고 있음: 보수적 전략
+                    total_score = (triangle_score + linearity_score) * 0.8
+                elif score_difference < 0:
+                    # 사용자가 앞서고 있음: 공격적 전략
+                    total_score = (triangle_score + linearity_score) * 1.2
+                else:
+                    # 점수가 동일
+                    total_score = triangle_score + linearity_score"""
+                total_score = triangle_score + linearity_score
+                self.heuristic_scores[tuple(move)] = total_score +score_difference
  
+    ####
+    # find_best_selection 점2개 이상 남기 전에, 삼각형을 만들 수 있는 상황이 있다면 
+    # 그 예외상황에서 삼각형을 우선으로 처리하도록 예외처리 
     def find_best_selection(self):
+        # 현재 drawn_lines를 검사하여 삼각형을 만들 수 있는 선 찾기
+        """for line1 in self.drawn_lines:
+            for line2 in self.drawn_lines:
+                if line1 != line2:
+                    common_point = set(line1).intersection(set(line2))
+                    if common_point:
+                        common_point = common_point.pop()
+                        for point1 in line1:
+                            if point1 != common_point:
+                                for point2 in line2:
+                                    if point2 != common_point:
+                                        new_line = [point1, point2]
+                                        if self.check_availability(new_line):
+                                            return new_line"""
+                                
         unconnected_points = [p for p in self.whole_points if p not in set(sum(self.drawn_lines, []))]
 
         if len(unconnected_points) >= 2:
@@ -97,10 +118,10 @@ class MACHINE():
             if valid_lines:
                 return random.choice(valid_lines) 
             else:
-                _, best_line = self.minmax(self.drawn_lines[:], depth=3, maximizing_player=True)
+                _, best_line = self.minmax(self.drawn_lines[:], depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
                 return best_line
         else:
-            _, best_line = self.minmax(self.drawn_lines[:], depth=3, maximizing_player=True)
+            _, best_line = self.minmax(self.drawn_lines[:], depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
             return best_line
     
     def evaluate_board(self, drawn_lines):
@@ -110,8 +131,10 @@ class MACHINE():
             line_as_tuple = tuple(line)  # 휴리스틱 점수를 찾기 위해 튜플로 변환
             total_score += self.heuristic_scores.get(line_as_tuple, 0)  # 점수를 가져옴, 없는 경우 0으로 처리
         return total_score
+    
+    # 말단노드까지 score 점수 갱신과 말단노드 도착 후 점수 초기화 작업?
 
-    def minmax(self, drawn_lines, depth, maximizing_player):
+    def minmax(self, drawn_lines, depth, alpha, beta, maximizing_player):
         if depth == 0 or not self.get_available_moves(drawn_lines):
             return self.evaluate_board(drawn_lines), None
 
@@ -120,23 +143,32 @@ class MACHINE():
             best_line = None
 
             for move in self.get_available_moves(drawn_lines):
-                new_drawn_lines = drawn_lines + [move]  # 새로운 움직임을 추가
-                eval, _ = self.minmax(new_drawn_lines, depth - 1, False)
+                new_drawn_lines = drawn_lines + [move]
+                eval, _ = self.minmax(new_drawn_lines, depth - 1, alpha, beta, False)
                 if eval > max_eval:
                     max_eval = eval
                     best_line = move
 
+                alpha = max(alpha, eval)
+                if beta <= alpha:
+                    break 
+
             return max_eval, best_line
+
         else:
             min_eval = float('inf')
             best_line = None
 
             for move in self.get_available_moves(drawn_lines):
-                new_drawn_lines = drawn_lines + [move]  # 새로운 움직임을 추가
-                eval, _ = self.minmax(new_drawn_lines, depth - 1, True)
+                new_drawn_lines = drawn_lines + [move]
+                eval, _ = self.minmax(new_drawn_lines, depth - 1, alpha, beta, True)
                 if eval < min_eval:
                     min_eval = eval
                     best_line = move
+
+                beta = min(beta, eval)
+                if beta <= alpha:
+                    break 
 
             return min_eval, best_line
 
@@ -144,6 +176,9 @@ class MACHINE():
         available_moves = [[point1, point2] for (point1, point2) in list(combinations(self.whole_points, 2)) 
                        if self.check_availability([point1, point2])]
         return available_moves
+    
+    ###
+    # minmax알고리즘 내부에서 사용될 score 변경 함수
     
     def check_availability(self, line):
         line_string = LineString(line)
@@ -176,3 +211,16 @@ class MACHINE():
         else:
             return False    
         
+    def check_triangle_score(self, new_drawn_lines, tmp_score, maximizing_player):
+        current_score = tmp_score.copy()
+        if new_drawn_lines:
+                last_line = new_drawn_lines[-1]
+                # last_line 점 두개가 있는지 확인된 선들만 for문?
+                for line in self.drawn_lines:
+                    if line != last_line:
+                        if self.forms_triangle(last_line, line) and self.is_valid_triangle(last_line, line):
+                            if maximizing_player:
+                                current_score[1] += 1
+                            else:
+                                current_score[0] += 1
+        return current_score
