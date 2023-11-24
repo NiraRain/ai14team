@@ -62,18 +62,20 @@ class MACHINE():
     def check_line_intersection(self, move):
         move_line = LineString(move)
         for line in self.drawn_lines:
+            if len(list(set([move[0], move[1], line[0], line[1]]))) == 3:
+                continue
             if LineString(line).intersects(move_line):
                 return True
         return False
 
     def calculate_heuristic_move(self, move, tmp_score):
         if self.check_line_intersection(move):
+            print(f"inter!, {move}")
             return 0 
         #triangle_score = self.calculate_triangle_score(move)
 
         user_score, machine_score = tmp_score
         score_difference = machine_score - user_score
-
         #total_score = triangle_score + score_difference
         total_score = score_difference
         return total_score
@@ -108,19 +110,19 @@ class MACHINE():
             if valid_lines:
                 return random.choice(valid_lines) 
             else:
-                _, best_line = self.minmax(self.drawn_lines[:], depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+                _, best_line = self.minmax(self.drawn_lines[:], depth=2, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
                 return best_line
         else:
-            _, best_line = self.minmax(self.drawn_lines[:], depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+            _, best_line = self.minmax(self.drawn_lines[:], depth=2, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
             return best_line
     
     # 말단노드까지 score 점수 갱신과 말단노드 도착 후 점수 초기화 작업?
 
     def minmax(self, drawn_lines, depth, alpha, beta, maximizing_player, tmpscore):
         if depth == 0 or not self.get_available_moves(drawn_lines):
-            return self.calculate_heuristic_move(drawn_lines[-1], tmpscore), None
+            score = self.calculate_heuristic_move(drawn_lines[-1], tmpscore)
+            return score, None
 
-        print(drawn_lines)
         if maximizing_player:
             max_eval = float('-inf')
             best_line = None
@@ -131,12 +133,17 @@ class MACHINE():
                 drawn_lines.append(move)
                 new_tmp_score = self.check_triangle_score(drawn_lines, tmpscore, maximizing_player)
 
+
                 eval, _ = self.minmax(drawn_lines, depth - 1, alpha, beta, False, new_tmp_score)
+
                 #print(maximizing_player, eval)
                 total_eval = eval
                 if total_eval > max_eval:
                     max_eval = total_eval
                     best_line = move
+                    print(f" move = {move} score = {new_tmp_score}, {eval}, drawn_lines = {drawn_lines}")
+                    #print(f"move = {move}, total_eval = {total_eval}, max_eval = {max_eval}")
+
 
                 drawn_lines = original_state
 
@@ -227,6 +234,6 @@ class MACHINE():
                                 current_score[1] += 1
                             else:
                                 current_score[0] += 1
+                            #print(current_score, "O", end='')
                             return current_score
-        print(current_score)
         return current_score
