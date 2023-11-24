@@ -59,21 +59,7 @@ class MACHINE():
                 return 1 
         return 0 
 
-    def check_line_intersection(self, move):
-        move_line = LineString(move)
-        for line in self.drawn_lines:
-            if len(list(set([move[0], move[1], line[0], line[1]]))) == 3:
-                continue
-            if LineString(line).intersects(move_line):
-                return True
-        return False
-
-    def calculate_heuristic_move(self, move, tmp_score):
-        if self.check_line_intersection(move):
-            print(f"inter!, {move}")
-            return 0 
-        #triangle_score = self.calculate_triangle_score(move)
-
+    def calculate_heuristic_move(self, tmp_score):
         user_score, machine_score = tmp_score
         score_difference = machine_score - user_score
         #total_score = triangle_score + score_difference
@@ -119,8 +105,9 @@ class MACHINE():
     # 말단노드까지 score 점수 갱신과 말단노드 도착 후 점수 초기화 작업?
 
     def minmax(self, drawn_lines, depth, alpha, beta, maximizing_player, tmpscore):
+        print(drawn_lines)
         if depth == 0 or not self.get_available_moves(drawn_lines):
-            score = self.calculate_heuristic_move(drawn_lines[-1], tmpscore)
+            score = self.calculate_heuristic_move(tmpscore)
             return score, None
 
         if maximizing_player:
@@ -133,17 +120,12 @@ class MACHINE():
                 drawn_lines.append(move)
                 new_tmp_score = self.check_triangle_score(drawn_lines, tmpscore, maximizing_player)
 
-
                 eval, _ = self.minmax(drawn_lines, depth - 1, alpha, beta, False, new_tmp_score)
-
-                #print(maximizing_player, eval)
+                print(f" move = {move} score = {new_tmp_score}, {eval}, drawn_lines = {drawn_lines}")
                 total_eval = eval
                 if total_eval > max_eval:
                     max_eval = total_eval
                     best_line = move
-                    print(f" move = {move} score = {new_tmp_score}, {eval}, drawn_lines = {drawn_lines}")
-                    #print(f"move = {move}, total_eval = {total_eval}, max_eval = {max_eval}")
-
 
                 drawn_lines = original_state
 
@@ -234,6 +216,7 @@ class MACHINE():
                                 current_score[1] += 1
                             else:
                                 current_score[0] += 1
-                            #print(current_score, "O", end='')
+                            print(current_score)
                             return current_score
+        print(current_score)
         return current_score
