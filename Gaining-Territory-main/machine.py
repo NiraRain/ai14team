@@ -220,7 +220,5 @@ class MACHINE():
                                 current_score[1] += 1
                             else:
                                 current_score[0] += 1
-                            print(current_score)
                             return current_score
-        print(current_score)
         return current_score
