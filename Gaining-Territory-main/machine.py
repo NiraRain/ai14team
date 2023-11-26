@@ -4,6 +4,7 @@ from shapely.geometry import LineString, Point, Polygon
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import math
 import pandas as pd
+import time
 
 
 class MACHINE():
@@ -27,6 +28,7 @@ class MACHINE():
         self.whole_points = []
         self.location = []
         self.triangles = [] # [(a, b), (c, d), (e, f)]
+        self.depth_n = 0
 
     def calculate_triangle_score(self, move):
         triangle_score = 0
@@ -72,7 +74,13 @@ class MACHINE():
         return move, best_move_score
     
     def find_best_selection(self):
+        start = time.time()
         tmp_score = self.score.copy()
+
+        if len(self.whole_points) == 15:
+            self.depth_n = 3
+        else:
+            self.depth_n = 2
 
         unconnected_points = [p for p in self.whole_points if p not in set(sum(self.drawn_lines, []))]
 
@@ -97,17 +105,20 @@ class MACHINE():
         else:
             available_moves = self.get_available_moves(self.drawn_lines)
             with ProcessPoolExecutor() as executor:
-                futures = [executor.submit(self.parallel_minmax, self.drawn_lines[:], 3, float('-inf'), float('inf'), True, tmp_score, move) for move in available_moves]
+                futures = [executor.submit(self.parallel_minmax, self.drawn_lines[:], self.depth_n, float('-inf'), float('inf'), True, tmp_score, move) for move in available_moves]
 
                 results = [future.result() for future in as_completed(futures)]
 
             best_move = max(results, key=lambda x: x[1])[0]
+            end = time.time()
+            print(f"{end - start:.5f} sec")
             return best_move
  
     ####
     # find_best_selection 점2개 이상 남기 전에, 삼각형을 만들 수 있는 상황이 있다면 
     # 그 예외상황에서 삼각형을 우선으로 처리하도록 예외처리 
     """def find_best_selection(self):
+        start = time.time()
         tmp_score = self.score.copy()
 
         unconnected_points = [p for p in self.whole_points if p not in set(sum(self.drawn_lines, []))]
@@ -133,10 +144,14 @@ class MACHINE():
             if valid_lines:
                 return random.choice(valid_lines) 
             else:
-                _, best_line = self.minmax(self.drawn_lines[:], depth=2, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+                _, best_line = self.minmax(self.drawn_lines[:], depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+                end = time.time()
+                print(f"{end - start:.5f} sec")
                 return best_line
         else:
-            _, best_line = self.minmax(self.drawn_lines[:], depth=2, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+            _, best_line = self.minmax(self.drawn_lines[:], depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+            end = time.time()
+            print(f"{end - start:.5f} sec")
             return best_line"""
     
     # 말단노드까지 score 점수 갱신과 말단노드 도착 후 점수 초기화 작업?
