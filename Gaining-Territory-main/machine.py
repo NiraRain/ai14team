@@ -29,6 +29,7 @@ class MACHINE():
         self.location = []
         self.triangles = [] # [(a, b), (c, d), (e, f)]
         self.depth_n = 0
+        self.minmax_count = 0
 
     def calculate_triangle_score(self, move):
         triangle_score = 0
@@ -123,13 +124,19 @@ class MACHINE():
     # 그 예외상황에서 삼각형을 우선으로 처리하도록 예외처리 
     def find_best_selection(self):
         if len(self.whole_points) == 5:
-            self.depth_n = 6
+            self.depth_n = 9
         elif len(self.whole_points) == 10:
             self.depth_n = 4
         elif len(self.whole_points) == 15:
-            self.depth_n = 3
+            if self.minmax_count > 5:
+                self.depth_n = 4
+            else:
+                self.depth_n = 3
         else:
-            self.depth_n = 2
+            if self.minmax_count > 5:
+                self.depth_n = 3
+            else:
+                self.depth_n = 2
 
         start = time.time()
         tmp_score = self.score.copy()
@@ -161,14 +168,16 @@ class MACHINE():
             if valid_lines:
                 return random.choice(valid_lines) 
             else:
-                _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+                _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=self.depth_n, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
                 end = time.time()
                 print(f"{end - start:.5f} sec")
+                self.minmax_count = False
                 return best_line
         else:
-            _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+            _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=self.depth_n, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
             end = time.time()
             print(f"{end - start:.5f} sec")
+            self.minmax_count = False
             return best_line
     
     # 말단노드까지 score 점수 갱신과 말단노드 도착 후 점수 초기화 작업?
