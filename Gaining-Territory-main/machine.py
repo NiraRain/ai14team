@@ -73,11 +73,15 @@ class MACHINE():
         _, best_move_score = self.minmax(drawn_lines + [move], depth - 1, alpha, beta, not maximizing_player, tmpscore)
         return move, best_move_score
     
-    def find_best_selection(self):
+    """def find_best_selection(self):
         start = time.time()
         tmp_score = self.score.copy()
 
-        if len(self.whole_points) == 15:
+        if len(self.whole_points) == 5:
+            self.depth_n = 6
+        elif len(self.whole_points) == 10:
+            self.depth_n = 4
+        elif len(self.whole_points) == 15:
             self.depth_n = 3
         else:
             self.depth_n = 2
@@ -112,17 +116,19 @@ class MACHINE():
             best_move = max(results, key=lambda x: x[1])[0]
             end = time.time()
             print(f"{end - start:.5f} sec")
-            return best_move
+            return best_move"""
  
     ####
     # find_best_selection 점2개 이상 남기 전에, 삼각형을 만들 수 있는 상황이 있다면 
     # 그 예외상황에서 삼각형을 우선으로 처리하도록 예외처리 
-    """def find_best_selection(self):
+    def find_best_selection(self):
         start = time.time()
         tmp_score = self.score.copy()
 
         unconnected_points = [p for p in self.whole_points if p not in set(sum(self.drawn_lines, []))]
 
+        available_moves = self.get_available_moves(self.drawn_lines)
+        
         if len(unconnected_points) >= 2:
             possible_lines = [[p1, p2] for p1 in unconnected_points for p2 in unconnected_points if p1 != p2]
             valid_lines = [line for line in possible_lines if self.check_availability(line)]
@@ -144,21 +150,21 @@ class MACHINE():
             if valid_lines:
                 return random.choice(valid_lines) 
             else:
-                _, best_line = self.minmax(self.drawn_lines[:], depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+                _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
                 end = time.time()
                 print(f"{end - start:.5f} sec")
                 return best_line
         else:
-            _, best_line = self.minmax(self.drawn_lines[:], depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+            _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
             end = time.time()
             print(f"{end - start:.5f} sec")
-            return best_line"""
+            return best_line
     
     # 말단노드까지 score 점수 갱신과 말단노드 도착 후 점수 초기화 작업?
 
-    def minmax(self, drawn_lines, depth, alpha, beta, maximizing_player, tmpscore):
+    def minmax(self, drawn_lines, can_move, depth, alpha, beta, maximizing_player, tmpscore):
         print(drawn_lines)
-        if depth == 0 or not self.get_available_moves(drawn_lines):
+        if depth == 0 or not can_move:
             score = self.calculate_heuristic_move(tmpscore)
             #user_score, machine_score = self.check_triangle_score(drawn_lines, tmpscore, maximizing_player)
             #score = machine_score - user_score
@@ -169,13 +175,14 @@ class MACHINE():
             max_eval = float('-inf')
             best_line = None
 
-            for move in self.get_available_moves(drawn_lines):
+            for move in can_move:
                 original_state = drawn_lines.copy()
 
                 drawn_lines.append(move)
                 new_tmp_score = self.check_triangle_score(drawn_lines, tmpscore, maximizing_player)
+                new_available_moves = self.remove_available_moves(can_move)
 
-                eval, _ = self.minmax(drawn_lines, depth - 1, alpha, beta, False, new_tmp_score)
+                eval, _ = self.minmax(drawn_lines, new_available_moves, depth - 1, alpha, beta, False, new_tmp_score)
                 print(f" move = {move} score = {new_tmp_score}, {eval}, drawn_lines = {drawn_lines}")
                 total_eval = eval
                 if total_eval > max_eval:
@@ -194,13 +201,14 @@ class MACHINE():
             min_eval = float('inf')
             best_line = None
 
-            for move in self.get_available_moves(drawn_lines):
+            for move in can_move:
                 original_state = drawn_lines.copy()
 
                 drawn_lines.append(move)
                 new_tmp_score = self.check_triangle_score(drawn_lines, tmpscore, maximizing_player)
+                new_available_moves = self.remove_available_moves(can_move)
 
-                eval, _ = self.minmax(drawn_lines, depth - 1, alpha, beta, True, new_tmp_score)
+                eval, _ = self.minmax(drawn_lines, new_available_moves, depth - 1, alpha, beta, True, new_tmp_score)
                 total_eval = eval
                 #print(maximizing_player, eval)
                 if total_eval < min_eval:
@@ -222,6 +230,13 @@ class MACHINE():
             if move not in drawn_lines and self.check_availability(move):
                 available_moves.append(move)
         return available_moves
+    
+    def remove_available_moves(self, available_moves):
+        new_available_moves = []
+        for move in available_moves:
+            if self.check_availability(move):
+                new_available_moves.append(move)
+        return new_available_moves
     
     def check_availability(self, line):
         line_string = LineString(line)
