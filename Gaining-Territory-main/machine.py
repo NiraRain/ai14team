@@ -122,6 +122,15 @@ class MACHINE():
     # find_best_selection 점2개 이상 남기 전에, 삼각형을 만들 수 있는 상황이 있다면 
     # 그 예외상황에서 삼각형을 우선으로 처리하도록 예외처리 
     def find_best_selection(self):
+        if len(self.whole_points) == 5:
+            self.depth_n = 6
+        elif len(self.whole_points) == 10:
+            self.depth_n = 4
+        elif len(self.whole_points) == 15:
+            self.depth_n = 3
+        else:
+            self.depth_n = 2
+
         start = time.time()
         tmp_score = self.score.copy()
 
@@ -131,8 +140,9 @@ class MACHINE():
         
         if len(unconnected_points) >= 2:
             possible_lines = [[p1, p2] for p1 in unconnected_points for p2 in unconnected_points if p1 != p2]
-            valid_lines = [line for line in possible_lines if self.check_availability(line)]
-            
+            condition_list1 = [False, True, True, True]
+            valid_lines = [line for line in possible_lines if self.check_availability(line, condition_list1)]
+
             for line1 in self.drawn_lines:
                 for line2 in self.drawn_lines:
                     if line1 != line2:
@@ -144,18 +154,19 @@ class MACHINE():
                                     for point2 in line2:
                                         if point2 != common_point:
                                             new_line = [point1, point2]
-                                            if self.check_availability(new_line):
+                                            condition_list2 = [False, True, True, False]
+                                            if self.check_availability(new_line, condition_list2):
                                                 return new_line
 
             if valid_lines:
                 return random.choice(valid_lines) 
             else:
-                _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+                _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
                 end = time.time()
                 print(f"{end - start:.5f} sec")
                 return best_line
         else:
-            _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
+            _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=3, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
             end = time.time()
             print(f"{end - start:.5f} sec")
             return best_line
@@ -227,42 +238,50 @@ class MACHINE():
         available_moves = []
         for point1, point2 in combinations(self.whole_points, 2):
             move = [point1, point2]
-            if move not in drawn_lines and self.check_availability(move):
+            conditionlist = [False, True, True, True]
+            if move not in drawn_lines and self.check_availability(move, conditionlist):
                 available_moves.append(move)
         return available_moves
     
     def remove_available_moves(self, available_moves):
         new_available_moves = []
         for move in available_moves:
-            if self.check_availability(move):
+            conditionlist = [False, False, True, False]
+            if self.check_availability(move, conditionlist):
                 new_available_moves.append(move)
         return new_available_moves
     
-    def check_availability(self, line):
+    def check_availability(self, line, conditionlist):
         line_string = LineString(line)
 
         # Must be one of the whole points
-        condition1 = (line[0] in self.whole_points) and (line[1] in self.whole_points)
+        condition1 = True
+        if conditionlist[0]:
+            condition1 = (line[0] in self.whole_points) and (line[1] in self.whole_points)
         
         # Must not skip a dot
         condition2 = True
-        for point in self.whole_points:
-            if point==line[0] or point==line[1]:
-                continue
-            else:
-                if bool(line_string.intersection(Point(point))):
-                    condition2 = False
+        if conditionlist[1]:
+            for point in self.whole_points:
+                if point==line[0] or point==line[1]:
+                    continue
+                else:
+                    if bool(line_string.intersection(Point(point))):
+                        condition2 = False
 
         # Must not cross another line
         condition3 = True
-        for l in self.drawn_lines:
-            if len(list(set([line[0], line[1], l[0], l[1]]))) == 3:
-                continue
-            elif bool(line_string.intersection(LineString(l))):
-                condition3 = False
+        if conditionlist[2]:
+            for l in self.drawn_lines:
+                if len(list(set([line[0], line[1], l[0], l[1]]))) == 3:
+                    continue
+                elif bool(line_string.intersection(LineString(l))):
+                    condition3 = False
 
         # Must be a new line
-        condition4 = (line not in self.drawn_lines)
+        condition4 = True
+        if conditionlist[3]:
+            condition4 = (line not in self.drawn_lines)
 
         if condition1 and condition2 and condition3 and condition4:
             return True
