@@ -30,6 +30,7 @@ class MACHINE():
         self.triangles = [] # [(a, b), (c, d), (e, f)]
         self.depth_n = 0
         self.minmax_count = 0
+        self.play_time = 0
 
     def calculate_triangle_score(self, move):
         triangle_score = 0
@@ -123,6 +124,7 @@ class MACHINE():
     # find_best_selection 점2개 이상 남기 전에, 삼각형을 만들 수 있는 상황이 있다면 
     # 그 예외상황에서 삼각형을 우선으로 처리하도록 예외처리 
     def find_best_selection(self):
+        self.play_time = 0
         if len(self.whole_points) == 5:
             self.depth_n = 9
         elif len(self.whole_points) == 10:
@@ -171,24 +173,27 @@ class MACHINE():
                 _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=self.depth_n, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
                 end = time.time()
                 print(f"{end - start:.5f} sec")
-                self.minmax_count = False
+                self.minmax_count += 1
+                print(f"play_time = {self.play_time}, available = {available_moves}")
                 return best_line
         else:
             _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=self.depth_n, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
             end = time.time()
             print(f"{end - start:.5f} sec")
-            self.minmax_count = False
+            self.minmax_count += 1
+            print(f"play_time = {self.play_time}, available = {len(available_moves)}")
             return best_line
     
     # 말단노드까지 score 점수 갱신과 말단노드 도착 후 점수 초기화 작업?
 
     def minmax(self, drawn_lines, can_move, depth, alpha, beta, maximizing_player, tmpscore):
-        print(drawn_lines)
+        #print(drawn_lines)
+        self.play_time += 1
         if depth == 0 or not can_move:
             score = self.calculate_heuristic_move(tmpscore)
             #user_score, machine_score = self.check_triangle_score(drawn_lines, tmpscore, maximizing_player)
             #score = machine_score - user_score
-            print(f"depth 0 score = {score}")
+            #print(f"depth 0 score = {score}")
             return score, None
 
         if maximizing_player:
@@ -201,9 +206,11 @@ class MACHINE():
                 drawn_lines.append(move)
                 new_tmp_score = self.check_triangle_score(drawn_lines, tmpscore, maximizing_player)
                 new_available_moves = self.remove_available_moves(can_move)
+                #print()
+
 
                 eval, _ = self.minmax(drawn_lines, new_available_moves, depth - 1, alpha, beta, False, new_tmp_score)
-                print(f" move = {move} score = {new_tmp_score}, {eval}, drawn_lines = {drawn_lines}")
+                #print(f" move = {move} score = {new_tmp_score}, {eval}, drawn_lines = {drawn_lines}")
                 total_eval = eval
                 if total_eval > max_eval:
                     max_eval = total_eval
@@ -314,8 +321,8 @@ class MACHINE():
                                 current_score[1] += 1
                             else:
                                 current_score[0] += 1
-                            print(maximizing_player)
-                            print(current_score)
+                            #print(maximizing_player)
+                            #print(current_score)
                             return current_score
-        print(current_score)
+        #print(current_score)
         return current_score
