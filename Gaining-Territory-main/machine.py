@@ -29,12 +29,10 @@ class MACHINE():
         self.location = []
         self.triangles = [] # [(a, b), (c, d), (e, f)]
         self.depth_n = 0
-        self.minmax_count = 0
-        self.play_time = 0
  
     def find_best_selection(self):
+        start_time = time.time()
         available_moves = self.get_available_moves(self.drawn_lines)
-        self.play_time = 0
         if(len(available_moves)) < 9:
             self.depth_n = 6
         elif(len(available_moves)) < 13:
@@ -46,7 +44,6 @@ class MACHINE():
         else:
             self.depth_n = 2
 
-        #start = time.time()
         tmp_score = self.score.copy()
 
         unconnected_points = [p for p in self.whole_points if p not in set(sum(self.drawn_lines, []))]
@@ -60,19 +57,13 @@ class MACHINE():
                 return random.choice(valid_lines) 
             else:
                 _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=self.depth_n, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
-                #end = time.time()
-                #print(f"{end - start:.5f} sec")
-                self.minmax_count += 1
-                #print(f"play_time = {self.play_time}, available = {len(available_moves)}")
-                #print(self.minmax_count)
+                end_time = time.time()
+                print(f"{end_time - start_time:.5f} sec")
                 return best_line
         else:
             _, best_line = self.minmax(self.drawn_lines[:], can_move=available_moves, depth=self.depth_n, alpha=float('-inf'), beta=float('inf'), maximizing_player=True, tmpscore=tmp_score)
-            end = time.time()
-            #print(f"{end - start:.5f} sec")
-            self.minmax_count += 1
-            #print(f"play_time = {self.play_time}, available = {len(available_moves)}")
-            #print(self.minmax_count)
+            end_time = time.time()
+            print(f"{end_time - start_time:.5f} sec")
             return best_line
     
     def check_availability(self, line, conditionlist):
@@ -139,10 +130,7 @@ class MACHINE():
                                 current_score[1] += 1
                             else:
                                 current_score[0] += 1
-                            #print(maximizing_player)
-                            #print(current_score)
                             return current_score
-        #print(current_score)
         return current_score
     
     # 마지막 점수차 휴리스틱 값 설정
@@ -173,8 +161,6 @@ class MACHINE():
     
     # minmax 함수
     def minmax(self, drawn_lines, can_move, depth, alpha, beta, maximizing_player, tmpscore):
-        #print(drawn_lines)
-        self.play_time += 1
         if depth == 0 or not can_move:
             score = self.calculate_heuristic_move(tmpscore)
             return score, None
@@ -191,7 +177,6 @@ class MACHINE():
                 new_available_moves = self.remove_available_moves(can_move)
 
                 eval, _ = self.minmax(drawn_lines, new_available_moves, depth - 1, alpha, beta, False, new_tmp_score)
-                #print(f" move = {move} score = {new_tmp_score}, {eval}, drawn_lines = {drawn_lines}")
                 total_eval = eval
                 if total_eval > max_eval:
                     max_eval = total_eval
@@ -217,8 +202,7 @@ class MACHINE():
                 new_available_moves = self.remove_available_moves(can_move)
 
                 eval, _ = self.minmax(drawn_lines, new_available_moves, depth - 1, alpha, beta, True, new_tmp_score)
-                total_eval = eval
-                #print(maximizing_player, eval)
+                total_eval = min_eval
                 if total_eval < min_eval:
                     min_eval = total_eval
                     best_line = move
