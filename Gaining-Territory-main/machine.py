@@ -202,7 +202,7 @@ class MACHINE():
                 new_available_moves = self.remove_available_moves(can_move)
 
                 eval, _ = self.minmax(drawn_lines, new_available_moves, depth - 1, alpha, beta, True, new_tmp_score)
-                total_eval = min_eval
+                total_eval = eval
                 if total_eval < min_eval:
                     min_eval = total_eval
                     best_line = move
